@@ -126,7 +126,11 @@ pub const PREDEFINED_REGIONS: [RegionDefinition; 72] = [
     RegionDefinition::subregion("china/sichuan", "sichuan", "china"),
     RegionDefinition::subregion("china/henan", "henan", "china"),
     // Russia — four federal-district leaves.
-    RegionDefinition::subregion("russia/central-fed-district", "central-fed-district", "russia"),
+    RegionDefinition::subregion(
+        "russia/central-fed-district",
+        "central-fed-district",
+        "russia",
+    ),
     RegionDefinition::subregion(
         "russia/northwestern-fed-district",
         "northwestern-fed-district",
@@ -163,13 +167,16 @@ pub fn validate_predefined_regions() -> Result<(), String> {
         match region.level {
             RegionLevel::Country => {
                 if region.parent.is_some() {
-                    return Err(format!("country leaf {} must have no registry parent", region.id));
+                    return Err(format!(
+                        "country leaf {} must have no registry parent",
+                        region.id
+                    ));
                 }
             }
             RegionLevel::Subregion => {
-                let parent = region
-                    .parent
-                    .ok_or_else(|| format!("subregion {} is missing a registry parent", region.id))?;
+                let parent = region.parent.ok_or_else(|| {
+                    format!("subregion {} is missing a registry parent", region.id)
+                })?;
                 let expected = format!("{parent}/{}", region.source_id);
                 if region.id != expected {
                     return Err(format!(
