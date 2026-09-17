@@ -1,5 +1,6 @@
 use md5::{Digest, Md5};
 use osm_domain::{predefined_region, validate_predefined_regions, RegionLevel, PREDEFINED_REGIONS};
+use osmpbf::BlobReader;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::File;
@@ -35,6 +36,9 @@ pub enum GeofabrikError {
 
     #[error("checksum mismatch: expected {expected}, observed {observed}")]
     ChecksumMismatch { expected: String, observed: String },
+
+    #[error("invalid OSM PBF snapshot: {0}")]
+    InvalidPbf(String),
 
     #[error("I/O error: {0}")]
     Io(#[from] io::Error),
@@ -247,6 +251,36 @@ pub fn verify_file(
 ) -> Result<VerificationReport, GeofabrikError> {
     let manifest = parse_md5_manifest(manifest_text)?;
     verify_reader(File::open(path)?, &manifest)
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct SnapshotMetadata {
+    /// OSM replication timestamp in Unix seconds, if present in the PBF header.
+    pub replication_timestamp: Option<i64>,
+    pub replication_sequence_number: Option<i64>,
+    pub replication_base_url: Option<String>,
+    pub source: Option<String>,
+    pub writing_program: Option<String>,
+}
+
+pub fn inspect_pbf(path: impl AsRef<Path>) -> Result<SnapshotMetadata, GeofabrikError> {
+    let mut reader = BlobReader::from_path(path)
+        .map_err(|error| GeofabrikError::InvalidPbf(error.to_string()))?;
+    let first = reader
+        .next()
+        .ok_or_else(|| GeofabrikError::InvalidPbf("PBF contains no blobs".into()))?
+        .map_err(|error| GeofabrikError::InvalidPbf(error.to_string()))?;
+    let header = first
+        .to_headerblock()
+        .map_err(|error| GeofabrikError::InvalidPbf(error.to_string()))?;
+
+    Ok(SnapshotMetadata {
+        replication_timestamp: header.osmosis_replication_timestamp(),
+        replication_sequence_number: header.osmosis_replication_sequence_number(),
+        replication_base_url: header.osmosis_replication_base_url().map(str::to_owned),
+        source: header.source().map(str::to_owned),
+        writing_program: header.writing_program().map(str::to_owned),
+    })
 }
 
 #[cfg(test)]
