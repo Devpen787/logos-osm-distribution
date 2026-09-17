@@ -85,7 +85,7 @@ These criteria are not satisfied by software produced or controlled by the submi
 | ID | Requirement | Primary mission | Minimum evidence | Status |
 |---|---|---|---|---|
 | SUB-01 | Public original-work repository | M02 | public repository | satisfied |
-| SUB-02 | Dual MIT + Apache-2.0 licensing | M02 | both license files + README declaration | in_progress |
+| SUB-02 | Dual MIT + Apache-2.0 licensing | M02 | both license files + README declaration | satisfied |
 | SUB-03 | Registry IDL + testnet 0.3 program ID | M11/M17 | source/IDL/deployment record | unaddressed |
 | SUB-04 | Module catalog + `logos-repo.json` URL | M13 | public catalog/install evidence | unaddressed |
 | SUB-05 | Required adoption evidence | M14/M15 | coverage + consumer links | unaddressed |
