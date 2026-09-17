@@ -93,7 +93,10 @@ impl GeofabrikIndex {
         let mut features = HashMap::with_capacity(collection.features.len());
 
         for feature in collection.features {
-            let key = (feature.properties.id.clone(), feature.properties.parent.clone());
+            let key = (
+                feature.properties.id.clone(),
+                feature.properties.parent.clone(),
+            );
             if features.insert(key.clone(), feature.properties).is_some() {
                 return Err(GeofabrikError::DuplicateSourceFeature {
                     id: key.0,
@@ -113,14 +116,14 @@ impl GeofabrikIndex {
             definition.source_id.to_owned(),
             Some(definition.source_parent.to_owned()),
         );
-        let source = self
-            .features
-            .get(&key)
-            .ok_or_else(|| GeofabrikError::MissingSourceRegion {
-                canonical_id: definition.id.to_owned(),
-                source_id: definition.source_id.to_owned(),
-                source_parent: definition.source_parent.to_owned(),
-            })?;
+        let source =
+            self.features
+                .get(&key)
+                .ok_or_else(|| GeofabrikError::MissingSourceRegion {
+                    canonical_id: definition.id.to_owned(),
+                    source_id: definition.source_id.to_owned(),
+                    source_parent: definition.source_parent.to_owned(),
+                })?;
 
         let pbf_url = source
             .urls
@@ -337,10 +340,9 @@ mod tests {
 
     #[test]
     fn parses_standard_md5_manifest() {
-        let manifest = parse_md5_manifest(
-            "5d41402abc4b2a76b9719d911017c592  switzerland-latest.osm.pbf\n",
-        )
-        .unwrap();
+        let manifest =
+            parse_md5_manifest("5d41402abc4b2a76b9719d911017c592  switzerland-latest.osm.pbf\n")
+                .unwrap();
         assert_eq!(manifest.expected_md5, "5d41402abc4b2a76b9719d911017c592");
         assert_eq!(
             manifest.filename.as_deref(),
@@ -350,10 +352,8 @@ mod tests {
 
     #[test]
     fn verifies_streamed_bytes_without_loading_a_pbf_into_memory() {
-        let manifest = parse_md5_manifest(
-            "5d41402abc4b2a76b9719d911017c592  sample.osm.pbf\n",
-        )
-        .unwrap();
+        let manifest =
+            parse_md5_manifest("5d41402abc4b2a76b9719d911017c592  sample.osm.pbf\n").unwrap();
         let report = verify_reader(Cursor::new(b"hello"), &manifest).unwrap();
         assert_eq!(report.observed_md5, manifest.expected_md5);
         assert_eq!(report.byte_length, 5);
@@ -361,10 +361,8 @@ mod tests {
 
     #[test]
     fn checksum_mismatch_fails_closed() {
-        let manifest = parse_md5_manifest(
-            "00000000000000000000000000000000  sample.osm.pbf\n",
-        )
-        .unwrap();
+        let manifest =
+            parse_md5_manifest("00000000000000000000000000000000  sample.osm.pbf\n").unwrap();
         let error = verify_reader(Cursor::new(b"hello"), &manifest).unwrap_err();
         match error {
             GeofabrikError::ChecksumMismatch { expected, observed } => {
