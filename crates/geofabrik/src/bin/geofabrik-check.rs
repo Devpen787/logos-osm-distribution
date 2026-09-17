@@ -1,11 +1,11 @@
-use geofabrik::{verify_file, GeofabrikIndex};
+use geofabrik::{inspect_pbf, verify_file, GeofabrikIndex};
 use std::env;
 use std::fs;
 use std::process;
 
 fn usage() -> ! {
     eprintln!(
-        "Usage:\n  geofabrik-check resolve <index.json> <lp-region-id>\n  geofabrik-check resolve-all <index.json>\n  geofabrik-check verify <snapshot.osm.pbf> <snapshot.osm.pbf.md5>"
+        "Usage:\n  geofabrik-check resolve <index.json> <lp-region-id>\n  geofabrik-check resolve-all <index.json>\n  geofabrik-check verify <snapshot.osm.pbf> <snapshot.osm.pbf.md5>\n  geofabrik-check inspect-pbf <snapshot.osm.pbf>"
     );
     process::exit(64);
 }
@@ -55,6 +55,15 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             let manifest = fs::read_to_string(manifest_path)?;
             let report = verify_file(snapshot_path, &manifest)?;
             println!("{}", serde_json::to_string_pretty(&report)?);
+        }
+        "inspect-pbf" => {
+            let snapshot_path = args.next().unwrap_or_else(|| usage());
+            if args.next().is_some() {
+                usage();
+            }
+
+            let metadata = inspect_pbf(snapshot_path)?;
+            println!("{}", serde_json::to_string_pretty(&metadata)?);
         }
         _ => usage(),
     }
