@@ -6,7 +6,8 @@ members = [
     "tools/osm-registry-idl",
 ]
 exclude = [
-    "programs/osm-registry/methods/guest",
+    "methods",
+    "methods/guest",
 ]
 resolver = "2"
 
