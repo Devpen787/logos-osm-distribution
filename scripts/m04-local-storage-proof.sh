@@ -11,6 +11,7 @@ MD5_MANIFEST="$ROOT/.tmp/m03/ethiopia-latest.osm.pbf.md5"
 EXPECTED_SIZE=139733363
 EXPECTED_MD5=426bd510159627dc139d4d0ad3bc6acd
 STORAGE_REV=bcc29f05e2a7b4a2d215d09640aaa7436359906b
+LOGOSCORE_REV=ab1ae3509070163c949afdc30f5d5db8898fd5b0
 
 LOGOS="$RUNTIME/logos"
 LGPM="$RUNTIME/lgpm"
@@ -54,13 +55,16 @@ rm -f "$LOGOS" "$LGPM" "$STORAGE_LGX" "$DOWNLOADED"
 mkdir -p "$MODULES" "$LOGOSCORE_CFG" "$STORAGE_DATA"
 
 echo "=== BUILD LOGOSCORE ==="
-nix build 'github:logos-co/logos-logoscore-cli' --out-link "$LOGOS"
+nix build "github:logos-co/logos-logoscore-cli/$LOGOSCORE_REV" --out-link "$LOGOS"
 
 echo "=== BUILD LGPM ==="
 nix build 'github:logos-co/logos-package-manager#cli' --out-link "$LGPM"
 
 echo "=== BUILD PINNED STORAGE MODULE ==="
-nix build "github:logos-co/logos-storage-module/$STORAGE_REV#lgx" --out-link "$STORAGE_LGX"
+nix build \
+  --accept-flake-config \
+  "github:logos-co/logos-storage-module/$STORAGE_REV#lgx" \
+  --out-link "$STORAGE_LGX"
 
 echo "=== INSTALL STORAGE MODULE ==="
 "$LGPM/bin/lgpm" \
@@ -87,10 +91,41 @@ echo "=== START LOGOSCORE ==="
   -D -m "$MODULES" \
   > "$LOGOSCORE_LOG" 2>&1 &
 DAEMON_PID=$!
-sleep 3
-ps -p "$DAEMON_PID" >/dev/null
 
-"$LOGOS/bin/logoscore" --config-dir "$LOGOSCORE_CFG" status
+echo "=== WAIT FOR LOGOSCORE READY ==="
+LOGOSCORE_READY=0
+STATUS_OUT="$RUNTIME/logoscore-status.json"
+for _ in $(seq 1 90); do
+  if ! ps -p "$DAEMON_PID" >/dev/null 2>&1; then
+    echo "logoscore exited before becoming ready"
+    cat "$LOGOSCORE_LOG" || true
+    exit 1
+  fi
+
+  if [ -f "$LOGOSCORE_CFG/daemon/state.json" ] \
+      && [ -f "$LOGOSCORE_CFG/client/config.json" ]; then
+    if "$LOGOS/bin/logoscore" --config-dir "$LOGOSCORE_CFG" status \
+        > "$STATUS_OUT" 2>&1; then
+      cat "$STATUS_OUT"
+      LOGOSCORE_READY=1
+      break
+    fi
+  fi
+
+  sleep 1
+done
+
+if [ "$LOGOSCORE_READY" != "1" ]; then
+  echo "Timed out waiting for logoscore readiness"
+  echo "--- config files ---"
+  find "$LOGOSCORE_CFG" -maxdepth 3 -type f -print 2>/dev/null || true
+  echo "--- status ---"
+  cat "$STATUS_OUT" 2>/dev/null || true
+  echo "--- logoscore log ---"
+  cat "$LOGOSCORE_LOG" 2>/dev/null || true
+  exit 1
+fi
+
 "$LOGOS/bin/logoscore" --config-dir "$LOGOSCORE_CFG" list-modules
 
 echo "=== LOAD STORAGE MODULE ==="
