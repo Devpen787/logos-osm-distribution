@@ -37,14 +37,20 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             if args.next().is_some() {
                 usage();
             }
-            println!("{}", serde_json::to_string_pretty(&registry.by_region(&region))?);
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&registry.by_region(&region))?
+            );
         }
         "parent" => {
             let parent = args.next().unwrap_or_else(|| usage());
             if args.next().is_some() {
                 usage();
             }
-            println!("{}", serde_json::to_string_pretty(&registry.by_parent(&parent))?);
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&registry.by_parent(&parent))?
+            );
         }
         "cid" => {
             let cid = args.next().unwrap_or_else(|| usage());
