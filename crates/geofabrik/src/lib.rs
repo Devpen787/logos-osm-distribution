@@ -344,7 +344,7 @@ mod tests {
         let index = GeofabrikIndex::from_json(&sample_index()).unwrap();
         let region = index.resolve("us/georgia").unwrap();
         assert_eq!(region.parent.as_deref(), Some("us"));
-        assert_eq!(region.source_parent, "us");
+        assert_eq!(region.source_parent, "north-america");
         assert!(region.pbf_url.contains("north-america/us/georgia"));
     }
 
