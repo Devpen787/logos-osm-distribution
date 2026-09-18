@@ -1,0 +1,9 @@
+[package]
+name = "osm-registry-idl"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+spel-framework-core = { git = "https://github.com/logos-co/spel.git", rev = "512e95912a4e374686435601d6614b60a179a183", features = ["idl-gen"] }
+serde_json.workspace = true
