@@ -19,6 +19,8 @@ Exit evidence:
 
 ## M03 — Geofabrik discovery + checksum proof
 
+**Status:** complete / locally verified
+
 **Primary requirements:** F-01, R-02 foundation.
 
 Goal:

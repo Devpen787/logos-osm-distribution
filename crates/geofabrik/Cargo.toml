@@ -1,0 +1,15 @@
+[package]
+name = "geofabrik"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+osm-domain = { path = "../osm-domain" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+md-5.workspace = true
+osmpbf.workspace = true
+reqwest.workspace = true
+httpdate.workspace = true

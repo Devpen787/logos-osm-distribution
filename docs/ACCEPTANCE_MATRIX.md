@@ -17,7 +17,7 @@ Status vocabulary:
 
 | ID | Criterion | Primary mission | Minimum evidence | Status |
 |---|---|---|---|---|
-| F-01 | Discover predefined Geofabrik regions with version + level | M03 | parsed canonical index; frozen-set filtering tests | unaddressed |
+| F-01 | Discover predefined Geofabrik regions with version + level | M03 | parsed canonical index; frozen-set filtering tests | locally_verified |
 | F-02 | Host: Geofabrik -> Logos Storage -> LEZ registry | M06 | end-to-end command/log + CID + registry query | unaddressed |
 | F-03 | Download from Logos Storage when hosted, Geofabrik fallback otherwise | M06/M07 | hosted and fallback integration tests | unaddressed |
 | F-04 | Bulk host with per-region opt-out and overlap safety if extras exposed | M10 | multi-region test + UX/CLI evidence | unaddressed |
@@ -41,7 +41,7 @@ Status vocabulary:
 | ID | Criterion | Primary mission | Minimum evidence | Status |
 |---|---|---|---|---|
 | R-01 | Storage retries transient upload failures with bounded exponential backoff | M10 | deterministic failure/retry tests | unaddressed |
-| R-02 | Checksum mismatch fails gracefully with clear error | M03/M07 | mismatch test + user-facing error evidence | unaddressed |
+| R-02 | Checksum mismatch fails gracefully with clear error | M03/M07 | mismatch test + user-facing error evidence | locally_verified |
 | R-03 | Registry timestamps support version ordering | M05 | ordering tests | unaddressed |
 | R-04 | No mandatory centralized service beyond allowed Logos + Geofabrik roles | all | architecture/dependency review + clean E2E | unaddressed |
 
