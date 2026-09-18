@@ -470,22 +470,8 @@ mod tests {
 
     #[test]
     fn duplicate_region_inside_one_batch_is_rejected() {
-        let a = entry(
-            "ethiopia",
-            None,
-            RegionLevel::Country,
-            "cid-a",
-            100,
-            1_000,
-        );
-        let b = entry(
-            "ethiopia",
-            None,
-            RegionLevel::Country,
-            "cid-b",
-            101,
-            2_000,
-        );
+        let a = entry("ethiopia", None, RegionLevel::Country, "cid-a", 100, 1_000);
+        let b = entry("ethiopia", None, RegionLevel::Country, "cid-b", 101, 2_000);
 
         let mut registry = Registry::default();
         assert!(matches!(
@@ -606,14 +592,7 @@ mod tests {
             1,
             10,
         );
-        let changed = entry(
-            "us/california",
-            None,
-            RegionLevel::Country,
-            "cid-b",
-            2,
-            20,
-        );
+        let changed = entry("us/california", None, RegionLevel::Country, "cid-b", 2, 20);
 
         let mut registry = Registry::default();
         registry.register_batch(vec![current]).unwrap();
