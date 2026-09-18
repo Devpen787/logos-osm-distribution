@@ -23,7 +23,7 @@ crates/osm-registry-core
   deterministic state + validation + queries
               |
               v
-programs/osm-registry/methods/guest
+methods/guest
   thin SPEL PDA + instruction wrapper
               |
               v
@@ -32,6 +32,18 @@ artifacts/osm-registry.idl.json
 ```
 
 Keep business rules out of the guest wrapper when they can be normal Rust.
+
+## Local environment orchestration
+
+The repository uses the current official `logos-scaffold` project flow for setup, localnet, wallet funding, guest build, and deploy.
+
+- scaffold config schema: `0.2.0`
+- LEZ pin: `47eba256479f6f785acbd138834340703cd03401` (v0.2.4)
+- SPEL pin: `512e95912a4e374686435601d6614b60a179a183`
+- local sequencer port: `3040`
+- `risc0_dev_mode = true` for this bounded M05 local proof
+
+The repo deliberately keeps `framework.kind = "default"`: our evaluator-facing workspace already owns IDL generation and freshness checking. Scaffold is used for its framework-agnostic setup/build/localnet/deploy path, while `artifacts/osm-registry.idl.json` remains the committed interface artifact.
 
 ## Registry model
 
