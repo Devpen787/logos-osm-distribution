@@ -64,6 +64,8 @@ Exit evidence:
 
 ## M05 — Minimal LEZ OSM registry proof
 
+**Status:** active / core + SPEL interface implemented / local LEZ execution pending
+
 **Primary requirements:** F-07, S-05; foundation for F-08/P-01.
 
 Goal:
