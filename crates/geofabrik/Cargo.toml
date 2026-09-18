@@ -11,3 +11,5 @@ serde_json.workspace = true
 thiserror.workspace = true
 md-5.workspace = true
 osmpbf.workspace = true
+reqwest.workspace = true
+httpdate.workspace = true
