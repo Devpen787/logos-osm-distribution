@@ -71,3 +71,21 @@ M05 does **not** claim:
 - adoption evidence.
 
 Those remain M11, M06, M08, and M14-M16 respectively.
+
+
+## Current Logos Scaffold
+
+- repository: `logos-co/scaffold`
+- observed branch: `master`
+- observed commit: `fbde92521710209a171820c570ad8d955b399009`
+- config schema: `0.2.0`
+
+Current scaffold provides the supported standalone loop:
+
+`setup -> build -> localnet -> wallet topup -> deploy`
+
+It discovers deployable guest programs from:
+
+`methods/guest/src/bin/*.rs`
+
+and, when `methods/Cargo.toml` exists, `lgs build` compiles the RISC-Zero methods package automatically. M05 follows that convention.
