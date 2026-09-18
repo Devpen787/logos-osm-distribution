@@ -41,6 +41,8 @@ Exit evidence:
 
 ## M04 — Logos Storage proof
 
+**Status:** active / upstream pinned / local proof pending
+
 **Primary requirements:** F-02/F-03 foundation, R-01 foundation.
 
 Goal:
