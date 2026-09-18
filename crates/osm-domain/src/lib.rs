@@ -66,7 +66,7 @@ pub const PREDEFINED_REGIONS: [RegionDefinition; 72] = [
     RegionDefinition::country("finland", "europe"),
     RegionDefinition::country("portugal", "europe"),
     RegionDefinition::country("greece", "europe"),
-    RegionDefinition::country("ireland", "europe"),
+    // Geofabrik publishes the Ireland coverage extract under this path.\n    RegionDefinition::country("ireland-and-northern-ireland", "europe"),
     RegionDefinition::country("hungary", "europe"),
     RegionDefinition::country("romania", "europe"),
     RegionDefinition::country("bulgaria", "europe"),
@@ -207,6 +207,15 @@ mod tests {
         assert_eq!(switzerland.parent, None);
         assert_eq!(switzerland.source_parent, "europe");
         assert_eq!(switzerland.level, RegionLevel::Country);
+    }
+
+    #[test]
+    fn ireland_uses_current_geofabrik_leaf_path() {
+        let ireland = predefined_region("ireland-and-northern-ireland").unwrap();
+        assert_eq!(ireland.source_id, "ireland-and-northern-ireland");
+        assert_eq!(ireland.source_parent, "europe");
+        assert_eq!(ireland.parent, None);
+        assert_eq!(ireland.level, RegionLevel::Country);
     }
 
     #[test]
