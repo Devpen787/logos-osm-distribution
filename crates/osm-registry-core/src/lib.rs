@@ -6,15 +6,7 @@ pub const REGISTRY_SCHEMA_VERSION: u8 = 1;
 pub const MAX_BATCH: usize = 50;
 
 #[derive(
-    Debug,
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    Serialize,
-    Deserialize,
-    BorshSerialize,
-    BorshDeserialize,
+    Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize,
 )]
 #[repr(u8)]
 pub enum RegionLevel {
@@ -34,16 +26,7 @@ impl TryFrom<u8> for RegionLevel {
     }
 }
 
-#[derive(
-    Debug,
-    Clone,
-    PartialEq,
-    Eq,
-    Serialize,
-    Deserialize,
-    BorshSerialize,
-    BorshDeserialize,
-)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub struct RegistryEntry {
     pub region: String,
     pub parent: Option<String>,
@@ -101,16 +84,7 @@ impl RegistryEntry {
     }
 }
 
-#[derive(
-    Debug,
-    Clone,
-    PartialEq,
-    Eq,
-    Serialize,
-    Deserialize,
-    BorshSerialize,
-    BorshDeserialize,
-)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub struct Registry {
     pub schema_version: u8,
     pub entries: Vec<RegistryEntry>,
@@ -330,14 +304,7 @@ mod tests {
         let mut conflicting = ethiopia.clone();
         conflicting.version = 101;
 
-        let kenya = entry(
-            "kenya",
-            None,
-            RegionLevel::Country,
-            "zDv-kenya",
-            100,
-            200,
-        );
+        let kenya = entry("kenya", None, RegionLevel::Country, "zDv-kenya", 100, 200);
 
         let mut registry = Registry::default();
         registry.register_batch(vec![ethiopia]).unwrap();
@@ -385,14 +352,7 @@ mod tests {
         let mut registry = Registry::default();
         registry
             .register_batch(vec![
-                entry(
-                    "ethiopia",
-                    None,
-                    RegionLevel::Country,
-                    "cid-old",
-                    100,
-                    1000,
-                ),
+                entry("ethiopia", None, RegionLevel::Country, "cid-old", 100, 1000),
                 entry(
                     "ethiopia",
                     None,
@@ -466,14 +426,7 @@ mod tests {
 
     #[test]
     fn checksum_must_be_md5_hex() {
-        let mut bad = entry(
-            "ethiopia",
-            None,
-            RegionLevel::Country,
-            "cid",
-            1,
-            1,
-        );
+        let mut bad = entry("ethiopia", None, RegionLevel::Country, "cid", 1, 1);
         bad.checksum = "not-md5".to_string();
 
         assert_eq!(bad.validate(), Err(RegistryError::InvalidChecksum));
