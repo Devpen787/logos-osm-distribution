@@ -37,11 +37,20 @@ impl RegionDefinition {
         source_id: &'static str,
         parent: &'static str,
     ) -> Self {
+        Self::subregion_source(id, source_id, parent, parent)
+    }
+
+    pub const fn subregion_source(
+        id: &'static str,
+        source_id: &'static str,
+        parent: &'static str,
+        source_parent: &'static str,
+    ) -> Self {
         Self {
             id,
             source_id,
             parent: Some(parent),
-            source_parent: parent,
+            source_parent,
             level: RegionLevel::Subregion,
         }
     }
@@ -83,7 +92,8 @@ pub const PREDEFINED_REGIONS: [RegionDefinition; 72] = [
     RegionDefinition::country("indonesia", "asia"),
     RegionDefinition::country("thailand", "asia"),
     RegionDefinition::country("vietnam", "asia"),
-    RegionDefinition::country("malaysia", "asia"),
+    // Geofabrik publishes Malaysia only as the combined Malaysia/Singapore/Brunei extract.
+    RegionDefinition::country("malaysia-singapore-brunei", "asia"),
     RegionDefinition::country("philippines", "asia"),
     RegionDefinition::country("pakistan", "asia"),
     RegionDefinition::country("bangladesh", "asia"),
@@ -104,14 +114,14 @@ pub const PREDEFINED_REGIONS: [RegionDefinition; 72] = [
     RegionDefinition::country("morocco", "africa"),
     RegionDefinition::country("ethiopia", "africa"),
     // United States — decomposed into eight state leaves.
-    RegionDefinition::subregion("us/california", "california", "us"),
-    RegionDefinition::subregion("us/texas", "texas", "us"),
-    RegionDefinition::subregion("us/florida", "florida", "us"),
-    RegionDefinition::subregion("us/new-york", "new-york", "us"),
-    RegionDefinition::subregion("us/washington", "washington", "us"),
-    RegionDefinition::subregion("us/illinois", "illinois", "us"),
-    RegionDefinition::subregion("us/georgia", "georgia", "us"),
-    RegionDefinition::subregion("us/pennsylvania", "pennsylvania", "us"),
+    RegionDefinition::subregion_source("us/california", "us/california", "us", "north-america"),
+    RegionDefinition::subregion_source("us/texas", "us/texas", "us", "north-america"),
+    RegionDefinition::subregion_source("us/florida", "us/florida", "us", "north-america"),
+    RegionDefinition::subregion_source("us/new-york", "us/new-york", "us", "north-america"),
+    RegionDefinition::subregion_source("us/washington", "us/washington", "us", "north-america"),
+    RegionDefinition::subregion_source("us/illinois", "us/illinois", "us", "north-america"),
+    RegionDefinition::subregion_source("us/georgia", "us/georgia", "us", "north-america"),
+    RegionDefinition::subregion_source("us/pennsylvania", "us/pennsylvania", "us", "north-america"),
     // India — six zone leaves.
     RegionDefinition::subregion("india/central-zone", "central-zone", "india"),
     RegionDefinition::subregion("india/eastern-zone", "eastern-zone", "india"),
@@ -178,11 +188,13 @@ pub fn validate_predefined_regions() -> Result<(), String> {
                 let parent = region.parent.ok_or_else(|| {
                     format!("subregion {} is missing a registry parent", region.id)
                 })?;
-                let expected = format!("{parent}/{}", region.source_id);
-                if region.id != expected {
+                let expected_prefix = format!("{parent}/");
+                if !region.id.starts_with(&expected_prefix)
+                    || region.id.len() == expected_prefix.len()
+                {
                     return Err(format!(
-                        "subregion id {} does not match expected {}",
-                        region.id, expected
+                        "subregion id {} must be namespaced under registry parent {}",
+                        region.id, parent
                     ));
                 }
             }
@@ -220,10 +232,19 @@ mod tests {
     }
 
     #[test]
+    fn malaysia_uses_current_combined_geofabrik_leaf_path() {
+        let malaysia = predefined_region("malaysia-singapore-brunei").unwrap();
+        assert_eq!(malaysia.source_id, "malaysia-singapore-brunei");
+        assert_eq!(malaysia.source_parent, "asia");
+        assert_eq!(malaysia.parent, None);
+        assert_eq!(malaysia.level, RegionLevel::Country);
+    }
+
+    #[test]
     fn source_selector_disambiguates_us_georgia() {
         let georgia = predefined_region("us/georgia").unwrap();
-        assert_eq!(georgia.source_id, "georgia");
-        assert_eq!(georgia.source_parent, "us");
+        assert_eq!(georgia.source_id, "us/georgia");
+        assert_eq!(georgia.source_parent, "north-america");
         assert_eq!(georgia.parent, Some("us"));
     }
 }
