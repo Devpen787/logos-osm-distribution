@@ -1,11 +1,11 @@
-use geofabrik::{inspect_pbf, verify_file, GeofabrikIndex};
+use geofabrik::{inspect_pbf, probe_source_version, verify_file, GeofabrikIndex};
 use std::env;
 use std::fs;
 use std::process;
 
 fn usage() -> ! {
     eprintln!(
-        "Usage:\n  geofabrik-check resolve <index.json> <lp-region-id>\n  geofabrik-check resolve-all <index.json>\n  geofabrik-check verify <snapshot.osm.pbf> <snapshot.osm.pbf.md5>\n  geofabrik-check inspect-pbf <snapshot.osm.pbf>"
+        "Usage:\n  geofabrik-check resolve <index.json> <lp-region-id>\n  geofabrik-check resolve-all <index.json>\n  geofabrik-check version <index.json> <lp-region-id>\n  geofabrik-check verify <snapshot.osm.pbf> <snapshot.osm.pbf.md5>\n  geofabrik-check inspect-pbf <snapshot.osm.pbf>"
     );
     process::exit(64);
 }
@@ -44,6 +44,19 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             let index = GeofabrikIndex::from_json(&input)?;
             let regions = index.resolve_all()?;
             println!("{}", serde_json::to_string_pretty(&regions)?);
+        }
+        "version" => {
+            let index_path = args.next().unwrap_or_else(|| usage());
+            let region_id = args.next().unwrap_or_else(|| usage());
+            if args.next().is_some() {
+                usage();
+            }
+
+            let input = fs::read_to_string(index_path)?;
+            let index = GeofabrikIndex::from_json(&input)?;
+            let region = index.resolve(&region_id)?;
+            let version = probe_source_version(&region.pbf_url)?;
+            println!("{}", serde_json::to_string_pretty(&version)?);
         }
         "verify" => {
             let snapshot_path = args.next().unwrap_or_else(|| usage());
