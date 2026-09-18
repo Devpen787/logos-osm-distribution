@@ -23,7 +23,7 @@ Status vocabulary:
 | F-04 | Bulk host with per-region opt-out and overlap safety if extras exposed | M10 | multi-region test + UX/CLI evidence | unaddressed |
 | F-05 | Local PBF import verifies Geofabrik MD5 then stores/registers | M07 | valid + mismatch fixture and real integration evidence | unaddressed |
 | F-06 | Update check compares source versions vs registry by region path | M10 | stale/current cases | unaddressed |
-| F-07 | LEZ registry stores required fields and queries region/parent/CID; supports batch register | M05 | program tests + IDL + query/batch evidence | unaddressed |
+| F-07 | LEZ registry stores required fields and queries region/parent/CID; supports batch register | M05 | program tests + IDL + query/batch evidence | in_progress |
 | F-08 | Registry operates against Logos testnet 0.3 | M11 | program ID + testnet transaction/query evidence | unaddressed |
 | F-09 | Self-contained OSM registry SDK/Basecamp module with stable API + embedding example | M08 | published API docs + independent example module build | unaddressed |
 
@@ -42,7 +42,7 @@ Status vocabulary:
 |---|---|---|---|---|
 | R-01 | Storage retries transient upload failures with bounded exponential backoff | M10 | deterministic failure/retry tests | unaddressed |
 | R-02 | Checksum mismatch fails gracefully with clear error | M03/M07 | mismatch test + user-facing error evidence | locally_verified |
-| R-03 | Registry timestamps support version ordering | M05 | ordering tests | unaddressed |
+| R-03 | Registry timestamps support version ordering | M05 | ordering tests | implemented |
 | R-04 | No mandatory centralized service beyond allowed Logos + Geofabrik roles | all | architecture/dependency review + clean E2E | unaddressed |
 
 ## Performance
@@ -59,7 +59,7 @@ Status vocabulary:
 | S-02 | macOS Apple Silicon + Linux x86_64 end-to-end | M12 | clean-run evidence on both architectures | unaddressed |
 | S-03 | Basecamp modules use `logos-module-builder` / `mkLogosModule` | M08/M09 | flake/module build evidence | unaddressed |
 | S-04 | Publish modules to module catalog via required release flow | M13 | catalog URL + install evidence | unaddressed |
-| S-05 | Registry IDL generated via SPEL | M05 | source + generated IDL | unaddressed |
+| S-05 | Registry IDL generated via SPEL | M05 | source + generated IDL | in_progress |
 | S-06 | Real-sequencer standalone host->store->register->query->download E2E in green CI | M12 | CI workflow + run logs | unaddressed |
 | S-07 | README covers setup, program ID, region list, CLI + Basecamp usage | M17 | evaluator-ready README | unaddressed |
 | S-08 | SDK docs include worked region->CID/metadata resolution | M08 | docs + executable example | unaddressed |
