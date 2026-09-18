@@ -66,7 +66,8 @@ pub const PREDEFINED_REGIONS: [RegionDefinition; 72] = [
     RegionDefinition::country("finland", "europe"),
     RegionDefinition::country("portugal", "europe"),
     RegionDefinition::country("greece", "europe"),
-    // Geofabrik publishes the Ireland coverage extract under this path.\n    RegionDefinition::country("ireland-and-northern-ireland", "europe"),
+    // Geofabrik publishes the Ireland coverage extract under this path.
+    RegionDefinition::country("ireland-and-northern-ireland", "europe"),
     RegionDefinition::country("hungary", "europe"),
     RegionDefinition::country("romania", "europe"),
     RegionDefinition::country("bulgaria", "europe"),
