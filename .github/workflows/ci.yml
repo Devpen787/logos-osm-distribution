@@ -19,7 +19,7 @@ jobs:
       - name: Test
         run: cargo test --workspace --all-targets
       - name: Registry guest tests
-        run: cargo test --manifest-path programs/osm-registry/methods/guest/Cargo.toml
+        run: cargo test --manifest-path methods/guest/Cargo.toml
       - name: Registry IDL freshness
         run: |
           cargo run --quiet -p osm-registry-idl > /tmp/osm-registry.idl.json
