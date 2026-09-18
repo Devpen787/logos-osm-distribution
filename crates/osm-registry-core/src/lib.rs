@@ -1,5 +1,6 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use thiserror::Error;
 
 pub const REGISTRY_SCHEMA_VERSION: u8 = 1;
@@ -83,11 +84,31 @@ impl RegistryEntry {
 
         Ok(())
     }
+
+    /// True when two writes describe the same region snapshot/status.
+    ///
+    /// Registration timestamp is deliberately excluded: replaying the same
+    /// snapshot later must be idempotent rather than manufacturing a new
+    /// registry version solely because the client observed it again.
+    fn same_snapshot(&self, other: &Self) -> bool {
+        self.region == other.region
+            && self.parent == other.parent
+            && self.level == other.level
+            && self.cid == other.cid
+            && self.source_url == other.source_url
+            && self.checksum == other.checksum
+            && self.version == other.version
+            && self.hosted == other.hosted
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub struct Registry {
     pub schema_version: u8,
+    /// Exactly one current entry per Geofabrik region path.
+    ///
+    /// The vector is kept globally ordered by timestamp descending, then
+    /// source version descending, then region ascending.
     pub entries: Vec<RegistryEntry>,
 }
 
@@ -103,6 +124,7 @@ impl Default for Registry {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RegistrationOutcome {
     pub inserted: usize,
+    pub updated: usize,
     pub skipped_idempotent: usize,
 }
 
@@ -121,76 +143,105 @@ impl Registry {
             });
         }
 
+        let mut regions = HashSet::with_capacity(entries.len());
         for entry in &entries {
             entry.validate()?;
+            if !regions.insert(entry.region.as_str()) {
+                return Err(RegistryError::DuplicateRegionInBatch {
+                    region: entry.region.clone(),
+                });
+            }
         }
 
-        // Work against a clone so a conflict anywhere in the batch cannot leave
-        // a partially-mutated registry.
+        // Work against a clone so any invalid/stale write fails the entire
+        // batch without partially mutating registry state.
         let mut candidate = self.clone();
         let mut inserted = 0;
+        let mut updated = 0;
         let mut skipped_idempotent = 0;
 
         for entry in entries {
-            if let Some(existing) = candidate
+            if let Some(index) = candidate
                 .entries
                 .iter()
-                .find(|e| e.region == entry.region && e.cid == entry.cid)
+                .position(|existing| existing.region == entry.region)
             {
-                if existing == &entry {
+                let existing = &candidate.entries[index];
+
+                if existing.same_snapshot(&entry) {
                     skipped_idempotent += 1;
                     continue;
                 }
-                return Err(RegistryError::ConflictingDuplicate {
-                    region: entry.region,
-                    cid: entry.cid,
-                });
-            }
 
-            candidate.entries.push(entry);
-            inserted += 1;
+                if existing.parent != entry.parent || existing.level != entry.level {
+                    return Err(RegistryError::RegionShapeChanged {
+                        region: entry.region,
+                    });
+                }
+
+                if entry.timestamp <= existing.timestamp {
+                    return Err(RegistryError::StaleTimestamp {
+                        region: entry.region,
+                        current: existing.timestamp,
+                        incoming: entry.timestamp,
+                    });
+                }
+
+                if entry.version < existing.version {
+                    return Err(RegistryError::VersionDowngrade {
+                        region: entry.region,
+                        current: existing.version,
+                        incoming: entry.version,
+                    });
+                }
+
+                candidate.entries[index] = entry;
+                updated += 1;
+            } else {
+                candidate.entries.push(entry);
+                inserted += 1;
+            }
         }
 
+        sort_registry_entries(&mut candidate.entries);
         *self = candidate;
+
         Ok(RegistrationOutcome {
             inserted,
+            updated,
             skipped_idempotent,
         })
     }
 
-    pub fn by_region(&self, region: &str) -> Vec<&RegistryEntry> {
-        let mut out: Vec<_> = self.entries.iter().filter(|e| e.region == region).collect();
-        sort_newest_first(&mut out);
-        out
+    pub fn by_region(&self, region: &str) -> Option<&RegistryEntry> {
+        self.entries.iter().find(|entry| entry.region == region)
     }
 
     pub fn by_parent(&self, parent: &str) -> Vec<&RegistryEntry> {
-        let mut out: Vec<_> = self
-            .entries
+        self.entries
             .iter()
-            .filter(|e| e.parent.as_deref() == Some(parent))
-            .collect();
-        sort_newest_first(&mut out);
-        out
+            .filter(|entry| entry.parent.as_deref() == Some(parent))
+            .collect()
     }
 
     pub fn by_cid(&self, cid: &str) -> Vec<&RegistryEntry> {
-        let mut out: Vec<_> = self.entries.iter().filter(|e| e.cid == cid).collect();
-        sort_newest_first(&mut out);
-        out
+        self.entries
+            .iter()
+            .filter(|entry| entry.cid == cid)
+            .collect()
     }
 
     pub fn latest_by_region(&self, region: &str) -> Option<&RegistryEntry> {
-        self.by_region(region).into_iter().next()
+        self.by_region(region)
     }
 }
 
-fn sort_newest_first(entries: &mut [&RegistryEntry]) {
+fn sort_registry_entries(entries: &mut [RegistryEntry]) {
     entries.sort_by(|a, b| {
         b.timestamp
             .cmp(&a.timestamp)
             .then_with(|| b.version.cmp(&a.version))
-            .then_with(|| a.cid.cmp(&b.cid))
+            .then_with(|| a.region.cmp(&b.region))
     });
 }
 
@@ -200,6 +251,8 @@ pub enum RegistryError {
     BatchEmpty,
     #[error("batch size {actual} exceeds max {max}")]
     BatchTooBig { actual: usize, max: usize },
+    #[error("batch contains region more than once: {region}")]
+    DuplicateRegionInBatch { region: String },
     #[error("region is empty")]
     InvalidRegion,
     #[error("invalid parent for region {region}: {reason}")]
@@ -216,8 +269,24 @@ pub enum RegistryError {
     InvalidVersion,
     #[error("timestamp must be non-zero")]
     InvalidTimestamp,
-    #[error("same region/CID already exists with different metadata: {region} / {cid}")]
-    ConflictingDuplicate { region: String, cid: String },
+    #[error("parent/level for existing region changed: {region}")]
+    RegionShapeChanged { region: String },
+    #[error(
+        "stale registry timestamp for {region}: incoming {incoming} is not newer than current {current}"
+    )]
+    StaleTimestamp {
+        region: String,
+        current: u64,
+        incoming: u64,
+    },
+    #[error(
+        "registry version downgrade for {region}: incoming {incoming} is older than current {current}"
+    )]
+    VersionDowngrade {
+        region: String,
+        current: u64,
+        incoming: u64,
+    },
 }
 
 impl RegistryError {
@@ -225,15 +294,18 @@ impl RegistryError {
         match self {
             Self::BatchEmpty => 1,
             Self::BatchTooBig { .. } => 2,
-            Self::InvalidRegion => 3,
-            Self::InvalidParent { .. } => 4,
-            Self::InvalidLevel(_) => 5,
-            Self::InvalidCid => 6,
-            Self::InvalidSourceUrl => 7,
-            Self::InvalidChecksum => 8,
-            Self::InvalidVersion => 9,
-            Self::InvalidTimestamp => 10,
-            Self::ConflictingDuplicate { .. } => 11,
+            Self::DuplicateRegionInBatch { .. } => 3,
+            Self::InvalidRegion => 4,
+            Self::InvalidParent { .. } => 5,
+            Self::InvalidLevel(_) => 6,
+            Self::InvalidCid => 7,
+            Self::InvalidSourceUrl => 8,
+            Self::InvalidChecksum => 9,
+            Self::InvalidVersion => 10,
+            Self::InvalidTimestamp => 11,
+            Self::RegionShapeChanged { .. } => 12,
+            Self::StaleTimestamp { .. } => 13,
+            Self::VersionDowngrade { .. } => 14,
         }
     }
 }
@@ -271,7 +343,7 @@ mod tests {
     }
 
     #[test]
-    fn batch_registration_is_idempotent_for_identical_region_cid() {
+    fn batch_registration_is_idempotent_for_same_snapshot_even_with_later_observation() {
         let ethiopia = entry(
             "ethiopia",
             None,
@@ -280,43 +352,147 @@ mod tests {
             1_789_685_417,
             1_789_700_000,
         );
+        let mut replay = ethiopia.clone();
+        replay.timestamp += 100;
+
         let mut registry = Registry::default();
 
         let first = registry.register_batch(vec![ethiopia.clone()]).unwrap();
-        assert_eq!(first.inserted, 1);
-        assert_eq!(first.skipped_idempotent, 0);
+        assert_eq!(
+            first,
+            RegistrationOutcome {
+                inserted: 1,
+                updated: 0,
+                skipped_idempotent: 0
+            }
+        );
 
-        let second = registry.register_batch(vec![ethiopia]).unwrap();
-        assert_eq!(second.inserted, 0);
-        assert_eq!(second.skipped_idempotent, 1);
-        assert_eq!(registry.entries.len(), 1);
+        let second = registry.register_batch(vec![replay]).unwrap();
+        assert_eq!(
+            second,
+            RegistrationOutcome {
+                inserted: 0,
+                updated: 0,
+                skipped_idempotent: 1
+            }
+        );
+        assert_eq!(registry.entries, vec![ethiopia]);
     }
 
     #[test]
-    fn conflicting_duplicate_fails_without_partial_mutation() {
-        let ethiopia = entry(
+    fn newer_snapshot_replaces_region_instead_of_creating_history_row() {
+        let old = entry(
             "ethiopia",
             None,
             RegionLevel::Country,
-            "zDv-ethiopia",
+            "cid-old",
             100,
-            200,
+            1_000,
         );
-        let mut conflicting = ethiopia.clone();
-        conflicting.version = 101;
-
-        let kenya = entry("kenya", None, RegionLevel::Country, "zDv-kenya", 100, 200);
+        let new = entry(
+            "ethiopia",
+            None,
+            RegionLevel::Country,
+            "cid-new",
+            200,
+            2_000,
+        );
 
         let mut registry = Registry::default();
-        registry.register_batch(vec![ethiopia]).unwrap();
+        registry.register_batch(vec![old]).unwrap();
+        let outcome = registry.register_batch(vec![new.clone()]).unwrap();
+
+        assert_eq!(outcome.inserted, 0);
+        assert_eq!(outcome.updated, 1);
+        assert_eq!(registry.entries.len(), 1);
+        assert_eq!(registry.by_region("ethiopia"), Some(&new));
+        assert!(registry.by_cid("cid-old").is_empty());
+        assert_eq!(registry.by_cid("cid-new"), vec![&new]);
+    }
+
+    #[test]
+    fn stale_write_fails_without_partial_batch_mutation() {
+        let current = entry(
+            "ethiopia",
+            None,
+            RegionLevel::Country,
+            "cid-current",
+            200,
+            2_000,
+        );
+        let stale = entry(
+            "ethiopia",
+            None,
+            RegionLevel::Country,
+            "cid-stale",
+            201,
+            1_999,
+        );
+        let kenya = entry("kenya", None, RegionLevel::Country, "cid-kenya", 100, 2_500);
+
+        let mut registry = Registry::default();
+        registry.register_batch(vec![current]).unwrap();
 
         let before = registry.clone();
-        let err = registry
-            .register_batch(vec![kenya, conflicting])
-            .unwrap_err();
+        let err = registry.register_batch(vec![kenya, stale]).unwrap_err();
 
-        assert!(matches!(err, RegistryError::ConflictingDuplicate { .. }));
+        assert!(matches!(err, RegistryError::StaleTimestamp { .. }));
         assert_eq!(registry, before);
+    }
+
+    #[test]
+    fn version_downgrade_is_rejected_even_with_newer_registration_timestamp() {
+        let current = entry(
+            "ethiopia",
+            None,
+            RegionLevel::Country,
+            "cid-current",
+            200,
+            2_000,
+        );
+        let downgrade = entry(
+            "ethiopia",
+            None,
+            RegionLevel::Country,
+            "cid-downgrade",
+            199,
+            3_000,
+        );
+
+        let mut registry = Registry::default();
+        registry.register_batch(vec![current]).unwrap();
+
+        assert!(matches!(
+            registry.register_batch(vec![downgrade]),
+            Err(RegistryError::VersionDowngrade { .. })
+        ));
+    }
+
+    #[test]
+    fn duplicate_region_inside_one_batch_is_rejected() {
+        let a = entry(
+            "ethiopia",
+            None,
+            RegionLevel::Country,
+            "cid-a",
+            100,
+            1_000,
+        );
+        let b = entry(
+            "ethiopia",
+            None,
+            RegionLevel::Country,
+            "cid-b",
+            101,
+            2_000,
+        );
+
+        let mut registry = Registry::default();
+        assert!(matches!(
+            registry.register_batch(vec![a, b]),
+            Err(RegistryError::DuplicateRegionInBatch { .. })
+        ));
+        assert!(registry.entries.is_empty());
     }
 
     #[test]
@@ -349,43 +525,7 @@ mod tests {
     }
 
     #[test]
-    fn region_query_orders_newest_timestamp_then_version() {
-        let mut registry = Registry::default();
-        registry
-            .register_batch(vec![
-                entry("ethiopia", None, RegionLevel::Country, "cid-old", 100, 1000),
-                entry(
-                    "ethiopia",
-                    None,
-                    RegionLevel::Country,
-                    "cid-new-low-version",
-                    150,
-                    2000,
-                ),
-                entry(
-                    "ethiopia",
-                    None,
-                    RegionLevel::Country,
-                    "cid-new-high-version",
-                    200,
-                    2000,
-                ),
-            ])
-            .unwrap();
-
-        let found = registry.by_region("ethiopia");
-        assert_eq!(found.len(), 3);
-        assert_eq!(found[0].cid, "cid-new-high-version");
-        assert_eq!(found[1].cid, "cid-new-low-version");
-        assert_eq!(found[2].cid, "cid-old");
-        assert_eq!(
-            registry.latest_by_region("ethiopia").unwrap().cid,
-            "cid-new-high-version"
-        );
-    }
-
-    #[test]
-    fn parent_and_cid_queries_are_supported() {
+    fn stored_entries_and_parent_queries_are_timestamp_ordered() {
         let mut registry = Registry::default();
         registry
             .register_batch(vec![
@@ -397,6 +537,40 @@ mod tests {
                     1,
                     10,
                 ),
+                entry(
+                    "us/texas",
+                    Some("us"),
+                    RegionLevel::Subregion,
+                    "cid-tx",
+                    1,
+                    30,
+                ),
+                entry(
+                    "india/northern-zone",
+                    Some("india"),
+                    RegionLevel::Subregion,
+                    "cid-in",
+                    1,
+                    20,
+                ),
+            ])
+            .unwrap();
+
+        assert_eq!(registry.entries[0].region, "us/texas");
+        assert_eq!(registry.entries[1].region, "india/northern-zone");
+        assert_eq!(registry.entries[2].region, "us/california");
+
+        let us = registry.by_parent("us");
+        assert_eq!(us.len(), 2);
+        assert_eq!(us[0].region, "us/texas");
+        assert_eq!(us[1].region, "us/california");
+    }
+
+    #[test]
+    fn cid_query_can_return_multiple_current_regions_and_preserves_order() {
+        let mut registry = Registry::default();
+        registry
+            .register_batch(vec![
                 entry(
                     "us/texas",
                     Some("us"),
@@ -416,13 +590,38 @@ mod tests {
             ])
             .unwrap();
 
-        let us = registry.by_parent("us");
-        assert_eq!(us.len(), 2);
-        assert_eq!(us[0].region, "us/texas");
-
         let shared = registry.by_cid("shared-cid");
         assert_eq!(shared.len(), 2);
         assert_eq!(shared[0].region, "india/northern-zone");
+        assert_eq!(shared[1].region, "us/texas");
+    }
+
+    #[test]
+    fn changing_region_shape_is_rejected() {
+        let current = entry(
+            "us/california",
+            Some("us"),
+            RegionLevel::Subregion,
+            "cid-a",
+            1,
+            10,
+        );
+        let changed = entry(
+            "us/california",
+            None,
+            RegionLevel::Country,
+            "cid-b",
+            2,
+            20,
+        );
+
+        let mut registry = Registry::default();
+        registry.register_batch(vec![current]).unwrap();
+
+        assert!(matches!(
+            registry.register_batch(vec![changed]),
+            Err(RegistryError::RegionShapeChanged { .. })
+        ));
     }
 
     #[test]
