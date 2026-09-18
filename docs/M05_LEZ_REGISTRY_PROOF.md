@@ -47,20 +47,22 @@ The repo deliberately keeps `framework.kind = "default"`: our evaluator-facing w
 
 ## Registry model
 
-The registry stores versioned entries rather than only one mutable row per region.
+The registry stores exactly one **current** entry per Geofabrik region path, matching LP-0018's requirement that `region` is unique.
 
-Identity/idempotency key:
+Identity key:
 
-`(region, cid)`
+`region`
 
 Rules:
 
-- an identical duplicate is skipped idempotently;
-- a duplicate `(region,cid)` with different metadata fails closed;
-- multiple distinct CIDs/versions for the same region may coexist;
-- query order is deterministic: timestamp descending, then version descending, then CID ascending.
+- replaying the same snapshot/status is idempotent even if the caller observed it at a later registration time;
+- a different snapshot for an existing region may replace it only when its registration timestamp is newer;
+- source-version downgrades fail closed;
+- parent/level for an existing region cannot change;
+- the same region cannot appear twice in one batch;
+- the stored registry vector is ordered by timestamp descending, then source version descending, then region ascending.
 
-This preserves historical snapshots and supports later update checks.
+This keeps the current registry compact and makes central-version vs registry update checks unambiguous. Historical archive semantics are intentionally out of scope for M05.
 
 ## Parent semantics
 
@@ -114,7 +116,8 @@ The on-chain state is queryable by fetching/decoding the registry PDA. A richer 
    - prove region/parent/CID query semantics from decoded state;
    - prove timestamp ordering;
    - prove identical replay is idempotent;
-   - prove conflicting replay fails.
+   - prove a newer region snapshot replaces the prior current entry;
+   - prove stale/conflicting replay fails atomically.
 
 ## Real M04 fixture
 
