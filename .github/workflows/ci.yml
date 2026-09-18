@@ -12,6 +12,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+      - name: Shell syntax
+        run: bash -n scripts/*.sh
       - name: Format
         run: cargo fmt --all -- --check
       - name: Test

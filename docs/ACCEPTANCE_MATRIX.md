@@ -18,8 +18,8 @@ Status vocabulary:
 | ID | Criterion | Primary mission | Minimum evidence | Status |
 |---|---|---|---|---|
 | F-01 | Discover predefined Geofabrik regions with version + level | M03 | parsed canonical index; frozen-set filtering tests | locally_verified |
-| F-02 | Host: Geofabrik -> Logos Storage -> LEZ registry | M06 | end-to-end command/log + CID + registry query | unaddressed |
-| F-03 | Download from Logos Storage when hosted, Geofabrik fallback otherwise | M06/M07 | hosted and fallback integration tests | unaddressed |
+| F-02 | Host: Geofabrik -> Logos Storage -> LEZ registry | M06 | end-to-end command/log + CID + registry query | in_progress |
+| F-03 | Download from Logos Storage when hosted, Geofabrik fallback otherwise | M06/M07 | hosted and fallback integration tests | in_progress |
 | F-04 | Bulk host with per-region opt-out and overlap safety if extras exposed | M10 | multi-region test + UX/CLI evidence | unaddressed |
 | F-05 | Local PBF import verifies Geofabrik MD5 then stores/registers | M07 | valid + mismatch fixture and real integration evidence | unaddressed |
 | F-06 | Update check compares source versions vs registry by region path | M10 | stale/current cases | unaddressed |
