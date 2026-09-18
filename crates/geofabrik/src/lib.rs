@@ -1,11 +1,14 @@
 use md5::{Digest, Md5};
 use osm_domain::{predefined_region, validate_predefined_regions, RegionLevel, PREDEFINED_REGIONS};
 use osmpbf::BlobReader;
+use reqwest::blocking::Client;
+use reqwest::header::{HeaderMap, CONTENT_LENGTH, ETAG, LAST_MODIFIED};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{self, Read};
 use std::path::Path;
+use std::time::UNIX_EPOCH;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -39,6 +42,15 @@ pub enum GeofabrikError {
 
     #[error("invalid OSM PBF snapshot: {0}")]
     InvalidPbf(String),
+
+    #[error("HTTP request failed: {0}")]
+    Http(#[from] reqwest::Error),
+
+    #[error("Geofabrik PBF response for {url} is missing Last-Modified")]
+    MissingLastModified { url: String },
+
+    #[error("invalid Last-Modified header for {url}: {value}")]
+    InvalidLastModified { url: String, value: String },
 
     #[error("I/O error: {0}")]
     Io(#[from] io::Error),
@@ -156,6 +168,69 @@ impl GeofabrikIndex {
             .map(|definition| self.resolve(definition.id))
             .collect()
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct SourceVersion {
+    /// Comparable source version derived from the final PBF response Last-Modified header.
+    pub version_unix_seconds: u64,
+    /// Raw HTTP Last-Modified value retained for human-readable evidence.
+    pub last_modified: String,
+    pub etag: Option<String>,
+    pub content_length: Option<u64>,
+}
+
+pub fn probe_source_version(url: &str) -> Result<SourceVersion, GeofabrikError> {
+    let client = Client::builder()
+        .redirect(reqwest::redirect::Policy::limited(10))
+        .build()?;
+    let response = client.head(url).send()?.error_for_status()?;
+    source_version_from_headers(url, response.headers())
+}
+
+fn source_version_from_headers(
+    url: &str,
+    headers: &HeaderMap,
+) -> Result<SourceVersion, GeofabrikError> {
+    let last_modified = headers
+        .get(LAST_MODIFIED)
+        .and_then(|value| value.to_str().ok())
+        .ok_or_else(|| GeofabrikError::MissingLastModified {
+            url: url.to_owned(),
+        })?
+        .to_owned();
+
+    let modified = httpdate::parse_http_date(&last_modified).map_err(|_| {
+        GeofabrikError::InvalidLastModified {
+            url: url.to_owned(),
+            value: last_modified.clone(),
+        }
+    })?;
+
+    let version_unix_seconds = modified
+        .duration_since(UNIX_EPOCH)
+        .map_err(|_| GeofabrikError::InvalidLastModified {
+            url: url.to_owned(),
+            value: last_modified.clone(),
+        })?
+        .as_secs();
+
+    let etag = headers
+        .get(ETAG)
+        .and_then(|value| value.to_str().ok())
+        .map(str::to_owned);
+
+    let content_length = headers
+        .get(CONTENT_LENGTH)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.parse::<u64>().ok());
+
+    Ok(SourceVersion {
+        version_unix_seconds,
+        last_modified,
+        etag,
+        content_length,
+    })
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -287,6 +362,7 @@ pub fn inspect_pbf(path: impl AsRef<Path>) -> Result<SnapshotMetadata, Geofabrik
 mod tests {
     use super::*;
     use osm_domain::PREDEFINED_REGIONS;
+    use reqwest::header::HeaderValue;
     use serde_json::json;
     use std::io::Cursor;
 
@@ -370,6 +446,29 @@ mod tests {
         let index = GeofabrikIndex::from_json(&json).unwrap();
         let resolved = index.resolve_all().unwrap();
         assert_eq!(resolved.len(), 72);
+    }
+
+    #[test]
+    fn parses_source_version_from_final_response_headers() {
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            LAST_MODIFIED,
+            HeaderValue::from_static("Thu, 17 Sep 2026 22:50:17 GMT"),
+        );
+        headers.insert(ETAG, HeaderValue::from_static("\"8542973-65bb59b94857b\""));
+        headers.insert(CONTENT_LENGTH, HeaderValue::from_static("139733363"));
+
+        let version =
+            source_version_from_headers("https://example.invalid/snapshot.osm.pbf", &headers)
+                .unwrap();
+
+        assert_eq!(version.version_unix_seconds, 1_789_685_417);
+        assert_eq!(version.last_modified, "Thu, 17 Sep 2026 22:50:17 GMT");
+        assert_eq!(
+            version.etag.as_deref(),
+            Some("\"8542973-65bb59b94857b\"")
+        );
+        assert_eq!(version.content_length, Some(139_733_363));
     }
 
     #[test]
