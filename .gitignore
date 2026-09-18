@@ -3,3 +3,7 @@
 *.tmp
 *.log
 /.tmp/
+/.scaffold/
+/methods/target/
+/methods/guest/target/
+/idl/

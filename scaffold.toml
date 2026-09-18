@@ -1,0 +1,25 @@
+[scaffold]
+version = "0.2.0"
+
+[repos.lez]
+source = "https://github.com/logos-blockchain/logos-execution-zone.git"
+pin = "47eba256479f6f785acbd138834340703cd03401"
+
+[repos.spel]
+source = "https://github.com/logos-co/spel.git"
+pin = "512e95912a4e374686435601d6614b60a179a183"
+
+[wallet]
+home_dir = ".scaffold/wallet"
+
+[framework]
+kind = "default"
+version = "0.1.0"
+
+[framework.idl]
+spec = "lssa-idl/0.1.0"
+path = "idl"
+
+[localnet]
+port = 3040
+risc0_dev_mode = true
