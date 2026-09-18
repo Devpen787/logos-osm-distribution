@@ -464,10 +464,7 @@ mod tests {
 
         assert_eq!(version.version_unix_seconds, 1_789_685_417);
         assert_eq!(version.last_modified, "Thu, 17 Sep 2026 22:50:17 GMT");
-        assert_eq!(
-            version.etag.as_deref(),
-            Some("\"8542973-65bb59b94857b\"")
-        );
+        assert_eq!(version.etag.as_deref(), Some("\"8542973-65bb59b94857b\""));
         assert_eq!(version.content_length, Some(139_733_363));
     }
 
