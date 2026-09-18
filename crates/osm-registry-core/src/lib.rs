@@ -8,6 +8,7 @@ pub const MAX_BATCH: usize = 50;
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize,
 )]
+#[borsh(use_discriminant = true)]
 #[repr(u8)]
 pub enum RegionLevel {
     Country = 0,
