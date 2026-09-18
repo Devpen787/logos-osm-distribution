@@ -18,5 +18,11 @@ jobs:
         run: cargo fmt --all -- --check
       - name: Test
         run: cargo test --workspace --all-targets
+      - name: Registry guest tests
+        run: cargo test --manifest-path programs/osm-registry/methods/guest/Cargo.toml
+      - name: Registry IDL freshness
+        run: |
+          cargo run --quiet -p osm-registry-idl > /tmp/osm-registry.idl.json
+          diff -u artifacts/osm-registry.idl.json /tmp/osm-registry.idl.json
       - name: Clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
