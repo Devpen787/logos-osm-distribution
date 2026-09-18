@@ -19,7 +19,7 @@ Exit evidence:
 
 ## M03 — Geofabrik discovery + checksum proof
 
-**Status:** live proof partially passed; Ireland mapping patched; 72-region rerun pending
+**Status:** complete / locally verified
 
 **Primary requirements:** F-01, R-02 foundation.
 
