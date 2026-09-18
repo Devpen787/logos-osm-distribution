@@ -315,8 +315,8 @@ mod tests {
                 {
                     "type": "Feature",
                     "properties": {
-                        "id": "georgia",
-                        "parent": "us",
+                        "id": "us/georgia",
+                        "parent": "north-america",
                         "name": "Georgia",
                         "urls": { "pbf": "https://download.geofabrik.de/north-america/us/georgia-latest.osm.pbf" }
                     }
